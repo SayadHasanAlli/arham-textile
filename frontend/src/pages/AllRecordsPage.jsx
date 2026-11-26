@@ -167,7 +167,7 @@ export default function AllRecordsPage() {
           <p className="text-2xl font-semibold text-slate-900 mt-1">{formatQty(summary.total_quantity)} pcs</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-medium">Total Earnings</p>
+          <p className="text-xs uppercase tracking-wider text-slate-500 font-medium">Total Wages</p>
           <p className="text-2xl font-semibold text-slate-900 mt-1">{formatINR(summary.total_earnings)}</p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Wallet } from 'lucide-react';
 import {
   LayoutDashboard,
   PlusCircle,
@@ -21,6 +22,7 @@ const adminNav = [
   { to: "/admin/workers", label: "Workers", icon: Users },
   { to: "/admin/vendors", label: "Vendors", icon: Store },
   { to: "/admin/pricing", label: "Production Pricing", icon: Tag },
+  { to: "/admin/payouts", label: "Payouts", icon: Wallet },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

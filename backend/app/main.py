@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.config import settings
-from app.routers import auth, workers, vendors, pricing, dashboard, production, exports
+from app.routers import auth, workers, vendors, pricing, dashboard, production, exports, payments
 
 logger = logging.getLogger("arham_textile")
 
@@ -81,6 +81,7 @@ app.include_router(vendors.router)
 app.include_router(pricing.router)
 app.include_router(production.router)
 app.include_router(exports.router)
+app.include_router(payments.router)
 
 
 @app.get("/api/health")

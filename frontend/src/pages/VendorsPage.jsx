@@ -111,7 +111,7 @@ export default function VendorsPage() {
                     <p className="font-medium text-slate-900">{formatQty(v.total_quantity)}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">Total Value</p>
+                    <p className="text-slate-500">Total Pay-Out</p>
                     <p className="font-semibold text-slate-900">{formatINR(v.total_value)}</p>
                   </div>
                 </div>

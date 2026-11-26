@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -145,3 +146,24 @@ class ProductionRecord(Base):
     worker: Mapped["Worker"] = relationship("Worker", back_populates="production_records")
     vendor: Mapped["Vendor"] = relationship("Vendor", back_populates="production_records")
     production_type: Mapped["ProductionType"] = relationship("ProductionType", back_populates="production_records")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    worker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("workers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    payment_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    payment_mode: Mapped[str] = mapped_column(String(30), nullable=False)
+    reference_note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    worker: Mapped["Worker"] = relationship("Worker", foreign_keys=[worker_id])

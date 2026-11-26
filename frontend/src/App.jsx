@@ -12,6 +12,7 @@ import WorkerProfilePage from "./pages/WorkerProfilePage";
 import VendorsPage from "./pages/VendorsPage";
 import PricingPage from "./pages/PricingPage";
 import SettingsPage from "./pages/SettingsPage";
+import PayoutsPage from './pages/PayoutsPage';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
               <Route path="workers/:workerId" element={<WorkerProfilePage />} />
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="pricing" element={<PricingPage />} />
+              <Route path="payouts" element={<PayoutsPage/>} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
 

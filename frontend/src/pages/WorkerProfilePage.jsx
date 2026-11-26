@@ -14,7 +14,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { ArrowLeft, Package, IndianRupee, Calendar, TrendingUp } from "lucide-react";
+import { ArrowLeft, Package, IndianRupee, Calendar, TrendingUp, Wallet } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { formatINR, formatQty } from "../utils/format";
@@ -154,6 +154,7 @@ export default function WorkerProfilePage() {
           sub={formatINR(summary.month_earnings)}
           icon={TrendingUp}
         />
+        
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -292,6 +293,12 @@ export default function WorkerProfilePage() {
             )}
           </div>
         </div>
+        <StatCard label="Total Paid" value={formatINR(summary.total_paid)} icon={Wallet} />
+        <StatCard
+          label={Number(summary.pending_balance) >= 0 ? 'Pending Balance' : 'Advance Paid'}
+          value={formatINR(Math.abs(summary.pending_balance))}
+          icon={IndianRupee}
+        />
 
         {history.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">

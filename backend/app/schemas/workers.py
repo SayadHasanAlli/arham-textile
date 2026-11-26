@@ -52,6 +52,8 @@ class WorkerProfileInfo(BaseModel):
 class WorkerProfileSummary(BaseModel):
     total_production: Decimal
     total_earnings: Decimal
+    total_paid: Decimal = Decimal("0.00")
+    pending_balance: Decimal = Decimal("0.00")
     week_production: Decimal
     week_earnings: Decimal
     month_production: Decimal

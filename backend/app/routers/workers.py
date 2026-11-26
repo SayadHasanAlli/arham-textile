@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
-from app.models import Worker, User, ProductionRecord, ProductionType
+from app.models import Worker, User, ProductionRecord, ProductionType, Payment
 from app.schemas.workers import (
     WorkerCreate,
     WorkerUpdate,
@@ -101,9 +101,20 @@ def _build_worker_profile(
         .one()
     )
 
+    total_earnings = Decimal(str(all_row[1]))
+    total_paid_raw = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0))
+        .filter(Payment.worker_id == worker_id)
+        .scalar()
+    )
+    total_paid = Decimal(str(total_paid_raw))
+    pending_balance = total_earnings - total_paid
+
     summary = WorkerProfileSummary(
         total_production=Decimal(str(all_row[0])),
-        total_earnings=Decimal(str(all_row[1])),
+        total_earnings=total_earnings,
+        total_paid=total_paid,
+        pending_balance=pending_balance,
         total_records=int(all_row[2] or 0),
         week_production=Decimal(str(week_row[0])),
         week_earnings=Decimal(str(week_row[1])),

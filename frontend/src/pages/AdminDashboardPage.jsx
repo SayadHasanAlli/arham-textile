@@ -100,9 +100,9 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard label="Total Workers" value={s.total_workers} icon={Users} />
         <StatCard label="Today's Production" value={`${formatQty(s.today_production)} pcs`} icon={Package} />
-        <StatCard label="Today's Earnings" value={formatINR(s.today_earnings)} icon={IndianRupee} />
+        <StatCard label="Today's Wages" value={formatINR(s.today_earnings)} icon={IndianRupee} />
         <StatCard label="Production This Month" value={`${formatQty(s.month_production)} pcs`} icon={Calendar} />
-        <StatCard label="Earnings This Month" value={formatINR(s.month_earnings)} icon={TrendingUp} />
+        <StatCard label="Payout This Month" value={formatINR(s.month_earnings)} icon={TrendingUp} />
         <StatCard label="Total Production Records" value={s.total_records} icon={ClipboardList} />
       </div>
 

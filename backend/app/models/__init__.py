@@ -5,6 +5,7 @@ from app.models.models import (
     ProductionType,
     ProductionRate,
     ProductionRecord,
+    Payment
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "ProductionType",
     "ProductionRate",
     "ProductionRecord",
+    "Payment"
 ]
