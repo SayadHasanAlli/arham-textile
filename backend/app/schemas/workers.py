@@ -40,6 +40,38 @@ class WorkerResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+
+class WorkerCycleGarmentItem(BaseModel):
+    name: str
+    quantity: Decimal
+    earnings: Decimal
+
+
+class WorkerLastPayoutInfo(BaseModel):
+    amount: Decimal
+    payment_date: date
+    payment_mode: str
+    reference_note: str | None = None
+
+
+class WorkerCycleSummary(BaseModel):
+    last_reset_at: datetime | None = None
+    last_payout: WorkerLastPayoutInfo | None = None
+    cycle_production: Decimal = Decimal("0.00")
+    cycle_earnings: Decimal = Decimal("0.00")
+    cycle_paid: Decimal = Decimal("0.00")
+    opening_balance: Decimal = Decimal("0.00")
+    net_payable: Decimal = Decimal("0.00")
+    garment_breakdown: list[WorkerCycleGarmentItem] = []
+
+
+class WorkerHistoryPagination(BaseModel):
+    page: int
+    page_size: int
+    total_records: int
+    total_pages: int
+
+    
 # ==================== PHASE 5: WORKER PROFILE SCHEMAS ====================
 class WorkerProfileInfo(BaseModel):
     id: int
@@ -47,6 +79,7 @@ class WorkerProfileInfo(BaseModel):
     phone_number: str | None
     joining_date: date
     status: str
+    last_cycle_reset_at: datetime | None = None
 
 
 class WorkerProfileSummary(BaseModel):
@@ -88,6 +121,8 @@ class WorkerHistoryRecord(BaseModel):
     rate_per_piece: Decimal
     total_price: Decimal
     notes: str | None
+    created_at: datetime
+    is_settled: bool = False
 
 
 class WorkerProfileResponse(BaseModel):
@@ -97,3 +132,5 @@ class WorkerProfileResponse(BaseModel):
     monthly_production: list[WorkerMonthlyPoint]
     type_distribution: list[WorkerTypePoint]
     history: list[WorkerHistoryRecord]
+    cycle: WorkerCycleSummary
+    history_pagination: WorkerHistoryPagination

@@ -23,6 +23,9 @@ class Worker(Base):
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive')", name="ck_workers_status"),
     )
+    last_cycle_reset_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True), nullable=True
+)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)

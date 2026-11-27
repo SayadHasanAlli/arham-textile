@@ -1,8 +1,9 @@
+import math
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
@@ -14,6 +15,10 @@ from app.schemas.workers import (
     WorkerResponse,
     WorkerProfileInfo,
     WorkerProfileSummary,
+    WorkerCycleGarmentItem,
+    WorkerLastPayoutInfo,
+    WorkerCycleSummary,
+    WorkerHistoryPagination,
     WorkerDailyPoint,
     WorkerMonthlyPoint,
     WorkerTypePoint,
@@ -53,6 +58,9 @@ def _build_worker_profile(
     end_date: date | None,
     sort_by: Literal["production_date", "quantity", "total_price"],
     sort_order: Literal["asc", "desc"],
+    page: int = 1,
+    page_size: int = 25,
+    hide_settled: bool = False,
 ) -> WorkerProfileResponse:
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
     if not worker:
@@ -120,6 +128,82 @@ def _build_worker_profile(
         week_earnings=Decimal(str(week_row[1])),
         month_production=Decimal(str(month_row[0])),
         month_earnings=Decimal(str(month_row[1])),
+    )
+
+    # Current Cycle KPIs
+    reset_at = worker.last_cycle_reset_at
+
+    cycle_prod_query = db.query(
+        func.coalesce(func.sum(ProductionRecord.quantity), 0),
+        func.coalesce(func.sum(ProductionRecord.total_price), 0),
+    ).filter(ProductionRecord.worker_id == worker_id)
+
+    cycle_garment_query = (
+        db.query(
+            ProductionType.production_name,
+            func.coalesce(func.sum(ProductionRecord.quantity), 0).label("qty"),
+            func.coalesce(func.sum(ProductionRecord.total_price), 0).label("earnings"),
+        )
+        .join(ProductionRecord, ProductionRecord.production_type_id == ProductionType.id)
+        .filter(ProductionRecord.worker_id == worker_id)
+    )
+
+    cycle_paid_query = db.query(
+        func.coalesce(func.sum(Payment.amount), 0)
+    ).filter(Payment.worker_id == worker_id)
+
+    if reset_at is not None:
+        cycle_prod_query = cycle_prod_query.filter(ProductionRecord.created_at > reset_at)
+        cycle_garment_query = cycle_garment_query.filter(ProductionRecord.created_at > reset_at)
+        cycle_paid_query = cycle_paid_query.filter(Payment.created_at > reset_at)
+
+    cycle_prod_row = cycle_prod_query.one()
+    cycle_production = Decimal(str(cycle_prod_row[0]))
+    cycle_earnings = Decimal(str(cycle_prod_row[1]))
+    cycle_paid = Decimal(str(cycle_paid_query.scalar()))
+
+    opening_balance = (total_earnings - cycle_earnings) - (total_paid - cycle_paid)
+
+    garment_rows = (
+        cycle_garment_query.group_by(ProductionType.id, ProductionType.production_name)
+        .order_by(func.sum(ProductionRecord.quantity).desc())
+        .all()
+    )
+    garment_breakdown = [
+        WorkerCycleGarmentItem(
+            name=r.production_name,
+            quantity=Decimal(str(r.qty)),
+            earnings=Decimal(str(r.earnings)),
+        )
+        for r in garment_rows
+    ]
+
+    last_payment_row = (
+        db.query(Payment)
+        .filter(Payment.worker_id == worker_id)
+        .order_by(Payment.payment_date.desc(), Payment.id.desc())
+        .first()
+    )
+    last_payout = (
+        WorkerLastPayoutInfo(
+            amount=last_payment_row.amount,
+            payment_date=last_payment_row.payment_date,
+            payment_mode=last_payment_row.payment_mode,
+            reference_note=last_payment_row.reference_note,
+        )
+        if last_payment_row
+        else None
+    )
+
+    cycle = WorkerCycleSummary(
+        last_reset_at=reset_at,
+        last_payout=last_payout,
+        cycle_production=cycle_production,
+        cycle_earnings=cycle_earnings,
+        cycle_paid=cycle_paid,
+        opening_balance=opening_balance,
+        net_payable=pending_balance,
+        garment_breakdown=garment_breakdown,
     )
 
     # Chart range defaults to last 30 days if no filter is set
@@ -205,7 +289,7 @@ def _build_worker_profile(
         for r in type_rows
     ]
 
-    # History table (strictly scoped to worker_id)
+    # History table (paginated & scoped to worker_id)
     history_query = (
         db.query(ProductionRecord)
         .options(
@@ -218,6 +302,8 @@ def _build_worker_profile(
         history_query = history_query.filter(ProductionRecord.production_date >= start_date)
     if end_date:
         history_query = history_query.filter(ProductionRecord.production_date <= end_date)
+    if hide_settled and reset_at is not None:
+        history_query = history_query.filter(ProductionRecord.created_at > reset_at)
 
     sort_col_map = {
         "production_date": ProductionRecord.production_date,
@@ -229,7 +315,18 @@ def _build_worker_profile(
         sort_col.asc() if sort_order == "asc" else sort_col.desc(),
         ProductionRecord.id.desc(),
     ]
-    history_rows = history_query.order_by(*order_clauses).limit(500).all()
+
+    total_history_records = history_query.count()
+    total_pages = max(1, math.ceil(total_history_records / page_size))
+    safe_page = min(max(1, page), total_pages)
+    offset = (safe_page - 1) * page_size
+
+    history_rows = (
+        history_query.order_by(*order_clauses)
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
 
     history = [
         WorkerHistoryRecord(
@@ -241,9 +338,18 @@ def _build_worker_profile(
             rate_per_piece=r.rate_per_piece,
             total_price=r.total_price,
             notes=r.notes,
+            created_at=r.created_at,
+            is_settled=(reset_at is not None and r.created_at <= reset_at),
         )
         for r in history_rows
     ]
+
+    history_pagination = WorkerHistoryPagination(
+        page=safe_page,
+        page_size=page_size,
+        total_records=total_history_records,
+        total_pages=total_pages,
+    )
 
     return WorkerProfileResponse(
         worker=WorkerProfileInfo(
@@ -252,12 +358,15 @@ def _build_worker_profile(
             phone_number=worker.phone_number,
             joining_date=worker.joining_date,
             status=worker.status,
+            last_cycle_reset_at=worker.last_cycle_reset_at,
         ),
         summary=summary,
+        cycle=cycle,
         daily_production=daily_production,
         monthly_production=monthly_production,
         type_distribution=type_distribution,
         history=history,
+        history_pagination=history_pagination,
     )
 
 
@@ -267,6 +376,9 @@ def get_my_worker_profile(
     end_date: date | None = None,
     sort_by: Literal["production_date", "quantity", "total_price"] = "production_date",
     sort_order: Literal["asc", "desc"] = "desc",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=10, le=100),
+    hide_settled: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -275,7 +387,9 @@ def get_my_worker_profile(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This endpoint is only available for worker accounts.",
         )
-    return _build_worker_profile(db, current_user.worker_id, start_date, end_date, sort_by, sort_order)
+    return _build_worker_profile(
+        db, current_user.worker_id, start_date, end_date, sort_by, sort_order, page, page_size, hide_settled
+    )
 
 
 @router.get("/{worker_id}/profile", response_model=WorkerProfileResponse)
@@ -285,6 +399,9 @@ def get_worker_profile(
     end_date: date | None = None,
     sort_by: Literal["production_date", "quantity", "total_price"] = "production_date",
     sort_order: Literal["asc", "desc"] = "desc",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=10, le=100),
+    hide_settled: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -297,7 +414,29 @@ def get_worker_profile(
     if current_user.role not in ("admin", "worker"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
-    return _build_worker_profile(db, worker_id, start_date, end_date, sort_by, sort_order)
+    return _build_worker_profile(
+        db, worker_id, start_date, end_date, sort_by, sort_order, page, page_size, hide_settled
+    )
+
+
+@router.post("/{worker_id}/reset-cycle")
+def reset_worker_cycle(
+    worker_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+
+    worker.last_cycle_reset_at = datetime.now(IST)
+    db.commit()
+    db.refresh(worker)
+    return {
+        "worker_id": worker.id,
+        "last_cycle_reset_at": worker.last_cycle_reset_at.isoformat(),
+        "message": "Worker cycle reset successfully",
+    }
 
 
 @router.get("", response_model=list[WorkerResponse])

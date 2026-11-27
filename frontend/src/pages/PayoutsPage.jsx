@@ -20,6 +20,7 @@ export default function PayoutsPage() {
     payment_date: new Date().toISOString().split('T')[0],
     payment_mode: 'UPI',
     reference_note: '',
+    reset_cycle: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -67,7 +68,7 @@ export default function PayoutsPage() {
         worker_id: Number(form.worker_id),
         amount: Number(form.amount),
       });
-      setForm((f) => ({ ...f, amount: '', reference_note: '' }));
+      setForm((f) => ({ ...f, amount: '', reference_note: '', reset_cycle: false }));
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.detail || 'Could not save payment.');
@@ -217,13 +218,28 @@ export default function PayoutsPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50"
-        >
-          {submitting ? 'Saving...' : 'Save Payment'}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.reset_cycle}
+                    onChange={(e) => setForm({ ...form, reset_cycle: e.target.checked })}
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                  />
+                  <span>Reset worker cycle after saving</span>
+                  <span className="text-xs text-slate-400">
+                    (starts a fresh cycle; any remainder/advance carries over)
+                  </span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : 'Save Payment'}
+                </button>
+        </div>
       </form>
 
       {/* Worker Balances Overview Table */}
